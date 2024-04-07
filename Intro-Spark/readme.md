@@ -3,6 +3,11 @@
 1. [Introduccion](#1.-INtroduccion)
 2. [big data](#2.-big-data)
 3. [Data Wrangling](#3.-data-wrangling)
+    - [Wrangling data]()
+    - [Functional programming]()
+    - [Read and Write out data]()
+    - [Spark environment and Spark APIs]()
+    - [RDD API]()
 4. [Debuging and Optimization](#4.-debuging-and-optimization)
 5. [Machine Learning with PySpark](#5.-machine-learning-with-pyspark)
 6. [Project overview](#.6-project-overview)
@@ -78,10 +83,10 @@ Otro modo es __Distributed__ o __cluster manager__.
 
 Unos de los casos de usos mas comunes es ETL, tambien se usa para entrenal modelos de ML, este ultimo caso es particularmente importante porque Spark mantiene los datos en memoria haciendo que el procesamiento y entrenamiento sea mas rápido.
 
-[Data analytics](https://spark.apache.org/sql/)
-[Machile Learning](https://spark.apache.org/mllib/)
-[Streaming](https://spark.apache.org/streaming/)
-[Graph Analytics](https://spark.apache.org/graphx/)
+- [Data analytics](https://spark.apache.org/sql/)
+- [Machile Learning](https://spark.apache.org/mllib/)
+- [Streaming](https://spark.apache.org/streaming/)
+- [Graph Analytics](https://spark.apache.org/graphx/)
 
 ## 1.6 Lkmitaciones de Spark
 
@@ -98,6 +103,171 @@ __Hadoop vs Spark__ SI bien es cierto que Spark puede ser mas rápido que Hadoop
 
 ## 3. Data Wrangling
 
+Usamos Python API o PySpark.
+
+Lo mas dificil de aprender Saprk es dominar la programación funcional que es bastante diferente de la programacion procedural.
+
+En la __programacion funcional__ seguimos el esquema map -> shuffle -> reduce
+
+Este tipo de programacion se ajusta bien a las necesidades de los sistemas distribuidos. 
+
+por ejemplo: tenemos una lista de canciones reproducidads y queres saber la cantidad de veces que se escucharon.
+Debemos convertir esa lista en tuplas (key,val) -> luego agrupar por key y finalmente optener la cantidad.
+
+
+|cancion|
+|-------|
+|c1|
+|c2|
+|c1|
+|c1|
+
+- quedaria
+
+|tupla|
+|-----|
+|(c1,1)|
+|(c2,1)|
+|(c1,1)|
+|(c1,1)|
+
+- shuffle
+
+|tupla|
+|-----|
+|(c1,[1,1,1])|
+|(c2, [1])|
+
+- reduce 
+
+|key|valor|
+|---|-----|
+|c1|3|
+|c2|1|
+
+__Mientras que en la programacion procedural hariamos__
+
+```python
+cta = {}
+for i in range(1, lista_canciones):
+    if lista_canciones[i] in cta:
+        cta[lista_canciones[i]] += 1
+    else:
+        cta[lista_canciones[i]] = 0
+```
+
+UN posible problema con la programación procedural en entornos distrbuidos es cuando usamos variables globales. Si un nodo se cae y volvemos a ejecutar este codigo, el resultado va a cambiar. __Por este motivo la programacion funcional es la indicada para la computación en paralelo__
+
+```python
+cta = {}
+for i in range(1, lista_canciones):
+    global cta
+    if lista_canciones[i] in cta:
+        cta[lista_canciones[i]] += 1
+    else:
+        cta[lista_canciones[i]] = 0
+```
+
+__DAGs__ Es la base del modelo __lazzy avaluation__ de Spark. Lo que hace es no transformar los datos o aplicar acciones sobre el DF hasta que sea necesario.
+LOs DataFRames de Spark son Inmutables y la forma en que Spark trabaja es uniendo funciones.
+
+## Maps and Lambda functions.
+
+Usamos map para generar un salida a un DataFrame aplicando una transformacion sobre los datos. 
+Hay dos formas de hacerlo.
+1. Podemos definir y usar funciones.
+2. O podemos usar funciones anonimas __lambda__.
+
+```python
+from pyspark import SparkContext
+
+sc = SparkContext(appName = "EjemploMap")
+
+lista_nombres = ['nicoLas', 'silVina', 'Martin', 'patricio', 'alEjandro']
+
+rdd = sc.parallelize(lista_nombres)
+
+def mayusculas(nombre):
+    return nombre.capitalize()
+
+rdd.map(mayusculas).collect()
+
+rdd.map(lambda nombre: nombre.capitalize()).collect()
+```
+
+[Para leer sobre funciones Lambda](https://palmstroem.blogspot.com/2012/05/lambda-calculus-for-absolute-dummies.html)
+
+Ambos ejemplos son identicos.
+
+### Read and Write out data
+
+Antes de poder empezar con __Data Wrangling__ hay que importar datos.
+Los formatos mas importantes son :
+- .csv
+- .json
+- .parquet
+
+1. __distributed Data Stores__
+
+Para poder procesar grandes cantidades de datos es necesario tambien almacenar os datos en medios __distribuidos__ 
+Hadoop usa __HDFS__ la data se divide en folds de 128MB cada uno. Otro almacenamiento puede ser __AWS S3__
+
+- [Leer mas HDFS](https://hadoop.apache.org/docs/r1.2.1/hdfs_design.html)
+- [Leer mas S3](https://aws.amazon.com/s3/)
+
+2. __SparkSession__
+
+El __sparkContext__ es el punto de entrada de cualquier programa Spark. 
+Conecta el Cluster con la Aplicacion.
+
+```python
+from pyspark import SparkConf, SparkContext
+
+conf = SparkConf().setAppName("name").setMaster("local o IP Address")
+sc = SparkContext(conf = conf)
+
+```
+
+__otra forma de iniciar Spark__
+
+```python
+from pyspark.sql import SparkSession
+
+sc = SparkSession.builder.\
+    appName("app name").\
+        config("param", "value").\
+            getOrCreate()
+```
+
+Este último método se usa para trabajar con DataFrames que ofrece un nivel de abstracción mayor a los __RDD__
+
+3. __Leer un archivo__
+
+```python
+spark.sparkContext.getCOnf().getAll()
+
+path = "hdfs://"
+
+df = sc.read.json(path)
+
+df.printSchema()
+
+df.describe()
+
+df.show(n=1)
+
+df.take(5)
+
+df.write.csv(path)
+
+```
+
+### Spark environment and Spark APIs
+
+Hay dos formas de hacer __wrangling__ con Spark. Una es usando __programacion imperativa__ (DF) y la otra __programacion declarativa__ (SQL).
+
+
+ 
 ## 4. Debuging and Optimization
 
 ## 5. Machine Learning with pySpark
